@@ -1,39 +1,30 @@
-import { ApolloServer, gql } from 'apollo-server-express';
-import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
-import http from 'http';
-import express from 'express';
-import cors from 'cors';
+import 'dotenv/config';
+import mongoose from 'mongoose';
+import { ApolloServer } from 'apollo-server';
 
-const app = express();
+import { typeDefs } from './typeDefs';
+import { resolvers } from './resolvers';
+import { Movie as MovieModel } from './models/movie';
+import Movies from './dataSources/movies';
 
-app.use(cors());
-app.use(express.json());
-
-const httpServer = http.createServer(app);
-
-const typeDefs = gql`
-  type Query {
-    hello: String
-  }
-`;
-
-const resolvers = {
-  Query: {
-    hello: () => 'world',
-  },
-};
-
-const startApolloServer = async (app, httpServer) => {
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+const uri = process.env.MONGODB_URI;
+const main = async () => {
+  await mongoose.connect(uri, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
   });
-
-  await server.start();
-  server.applyMiddleware({ app });
 };
 
-startApolloServer(app, httpServer);
+main()
+  .then(console.log('🎉 connected to database successfully'))
+  .catch((error) => console.error(error));
 
-export default httpServer;
+const dataSources = () => ({
+  movies: new Movies(MovieModel),
+});
+
+const server = new ApolloServer({ typeDefs, resolvers, dataSources });
+
+server.listen({ port: process.env.PORT || 4000 }).then(({ url }) => {
+  console.log(`🚀 Server ready at ${url}`);
+});
